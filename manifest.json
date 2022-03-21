@@ -1,6 +1,6 @@
 {
-  "short_name": "React App",
-  "name": "Create React App Sample",
+  "short_name": "SGraphs",
+  "name": "A Singapore Government data visualiser built on react.js",
   "icons": [
     {
       "src": "favicon.ico",
@@ -10,6 +10,6 @@
   ],
   "start_url": ".",
   "display": "standalone",
-  "theme_color": "#000000",
-  "background_color": "#282c34"
+  "theme_color": "#e8e8e4",
+  "background_color": "#e8e8e4"
 }
