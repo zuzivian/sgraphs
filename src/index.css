@@ -5,9 +5,15 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background-color: #e8e8e4;
+  overflow-x: hidden;
+  max-width: 100%;
 }
 
-code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+.jumbotron {
+  background-color: #fec5bb;
+}
+
+.settingsbar {
+  background-color: #d8e2dc;
 }
