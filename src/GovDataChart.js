@@ -77,50 +77,55 @@ function GovDataChart(props) {
 
     // error handling
     useEffect(() => {
-        if (error && !isLoaded) {
-            let newOrg = orgList[Math.floor(Math.random() * orgList.length)];
-            setOrganisation(newOrg);
-        }
-    }, [error])
+      if (error && !isLoaded) {
+        let newOrg = orgList[Math.floor(Math.random() * orgList.length)];
+        setOrganisation(newOrg);
+      }
+    }, [error, isLoaded, orgList]);
 
     // update datasets whenever there are changes to the parameters
     useEffect(() => {
-        if (!result || !result.records) return;
-        let sorted_records = result.records.sort((a, b) => a[xKey] > b[xKey]);
+      if (!result || !result.records) return;
+      let records = result.records.sort((a, b) => a[xKey] > b[xKey]);
+      let dataset = {};
 
-        setDataset(regroupDataset(sumData, sorted_records, series));
+      // if we aren't summing data, a GroupBy opreation will suffice
+      if (!sumData) return _.groupBy(records, series);
+
+      for (let i = 0; i < records.length; i++) {
+        let item = records[i];
+        let seriesID = item[series];
+        if (!dataset[seriesID]) {
+          // series doesnt exist yet, insert first data point
+          dataset[seriesID] = [
+            { [xKey]: item[xKey], [yKey]: parseFloatOrText(item[yKey]) },
+          ];
+          continue;
+        }
+        // series exists,  check if xKey exists in series
+        let found = false;
+        for (const j in dataset[seriesID]) {
+          if (dataset[seriesID][j][xKey] === item[xKey]) {
+            found = true;
+            if (!isFloatOrInt(item[yKey])) continue; // item is NaN, don't even bother with it
+            if (!isFloatOrInt(dataset[seriesID][j][yKey])) {
+              dataset[seriesID][j][yKey] = parseFloatOrText(item[yKey]); // replace NaN with number if possible
+            } else {
+              dataset[seriesID][j][yKey] += parseFloatOrText(item[yKey]); // both are numbers, add y Values together
+            }
+          }
+        }
+        if (!found)
+          dataset[seriesID].push({
+            [xKey]: item[xKey],
+            [yKey]: parseFloatOrText(item[yKey]),
+          }); // x-key doesn't exist, push it to dataset
+      }
+
+      setDataset(dataset);
     }, [sumData, result, series, xKey, yKey]);
 
-    function regroupDataset(sumData, records, series_name) {
-        // if we aren't summing data, a GroupBy opreation will suffice
-        if (!sumData) return _.groupBy(records, series_name);
-
-        let dataset = {};
-        for (let i = 0; i < records.length; i++) {
-            let item = records[i];
-            let seriesID = item[series_name];
-            if (!dataset[seriesID]) {
-                // series doesnt exist yet, insert first data point
-                dataset[seriesID] = [{ [xKey]: item[xKey], [yKey]: parseFloatOrText(item[yKey]) }];
-                continue;
-            }
-            // series exists,  check if xKey exists in series
-            let found = false;
-            for (const j in dataset[seriesID]) {
-                if (dataset[seriesID][j][xKey] === item[xKey]) {
-                    found = true;
-                    if (!isFloatOrInt(item[yKey])) continue;                         // item is NaN, don't even bother with it
-                    if (!isFloatOrInt(dataset[seriesID][j][yKey])) {
-                        dataset[seriesID][j][yKey] = parseFloatOrText(item[yKey]);  // replace NaN with number if possible
-                    } else {
-                        dataset[seriesID][j][yKey] += parseFloatOrText(item[yKey]);   // both are numbers, add y Values together
-                    }
-                }
-            }
-            if (!found) dataset[seriesID].push({ [xKey]: item[xKey], [yKey]: parseFloatOrText(item[yKey]) });   // x-key doesn't exist, push it to dataset
-        }
-        return dataset;
-    }
+    
 
     return (
         <Row>

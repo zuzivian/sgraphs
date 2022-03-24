@@ -1,6 +1,6 @@
 # SGraphs: SGraphs: a data explorer for data.gov.sg
 
-SGraphs is a visualisation tool using publicly available Singapore Government data. This project was built on react with bootstrapp and recharts 2.1. 
+SGraphs is a visualisation tool using publicly available Singapore Government data. This project was built on react.js, with bootstrap 2.2 and recharts 2.1. 
 
 
 ## 
