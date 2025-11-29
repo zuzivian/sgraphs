@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Button, Row, Col, Form } from 'react-bootstrap';
 
-import { getResourceNamefromID } from "./utils.js";
+import { getResourceNamefromID } from "./utils";
 
 function ChartSettings(props) {
   let [xMin, setXMin, xMax, setXMax, yMin, setYMin, yMax, setYMax] =

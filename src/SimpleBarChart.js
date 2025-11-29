@@ -10,7 +10,7 @@ import {
 } from "recharts";
 import PropTypes from "prop-types";
 
-import { parseFloatOrText } from "./utils.js";
+import { parseFloatOrText } from "./utils";
 import {
   CHART_HEIGHT,
   CHART_MARGINS,
@@ -20,8 +20,8 @@ import {
   ANIMATION_DURATION,
   TIMESTAMP_THRESHOLD,
   COLOR_PALETTE,
-} from "./constants.js";
-import { logger } from "./utils/logger.js";
+} from "./constants";
+import { logger } from "./utils/logger";
 
 /**
  * Bar chart component for displaying categorical data

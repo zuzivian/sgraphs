@@ -15,9 +15,9 @@ import {
   compareValues,
   parseDate,
   isDateString,
-} from "./utils.js";
-import { logger, verboseLog } from "./utils/logger.js";
-import { useDebounce } from "./hooks/useDebounce.js";
+} from "./utils";
+import { logger, verboseLog } from "./utils/logger";
+import { useDebounce } from "./hooks/useDebounce";
 import {
   API_DATASETS_ENDPOINT,
   API_LIST_ROWS_ENDPOINT,
@@ -26,7 +26,7 @@ import {
   ERROR_MESSAGE_MAX_LENGTH,
   DEBOUNCE_DELAY,
   DOMAIN_AUTO,
-} from "./constants.js";
+} from "./constants";
 
 function GovDataChart(props) {
   const [packages, setPackages] = useState([]);
