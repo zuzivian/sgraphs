@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useMemo } from "react";
 import { Row, Col } from "react-bootstrap";
 import _ from "underscore";
 
@@ -17,6 +17,16 @@ import {
   isDateString,
 } from "./utils.js";
 import { logger, verboseLog } from "./utils/logger.js";
+import { useDebounce } from "./hooks/useDebounce.js";
+import {
+  API_DATASETS_ENDPOINT,
+  API_LIST_ROWS_ENDPOINT,
+  MAX_PAGES_TO_FETCH,
+  DEFAULT_LIMIT,
+  ERROR_MESSAGE_MAX_LENGTH,
+  DEBOUNCE_DELAY,
+  DOMAIN_AUTO,
+} from "./constants.js";
 
 function GovDataChart(props) {
   const [packages, setPackages] = useState([]);
@@ -28,11 +38,14 @@ function GovDataChart(props) {
   const [isLoadingDatasets, setIsLoadingDatasets] = useState(true);
   const [result, setResult] = useState([]);
   const [sumData, setSumData] = useState(true);
-  const [limit, setLimit] = useState("2000");
-  const [xMin, setXMin] = useState("auto");
-  const [xMax, setXMax] = useState("auto");
-  const [yMin, setYMin] = useState("auto");
-  const [yMax, setYMax] = useState("auto");
+  const [limit, setLimit] = useState(String(DEFAULT_LIMIT));
+  const [xMin, setXMin] = useState(DOMAIN_AUTO);
+  const [xMax, setXMax] = useState(DOMAIN_AUTO);
+  const [yMin, setYMin] = useState(DOMAIN_AUTO);
+  const [yMax, setYMax] = useState(DOMAIN_AUTO);
+
+  // Debounce limit changes to prevent excessive API calls
+  const debouncedLimit = useDebounce(limit, DEBOUNCE_DELAY);
   const [xKey, setXKey] = useState("");
   const [yKey, setYKey] = useState("");
   const [series, setSeries] = useState("");
@@ -61,9 +74,8 @@ function GovDataChart(props) {
 
     // Use the new data.gov.sg v2 API endpoint with full URL
     // Documentation: https://guide.data.gov.sg/developer-guide/dataset-apis/list-all-datasets
-    // Endpoint: https://api-production.data.gov.sg/v2/public/api/datasets (note: "datasets" plural, HTTPS)
     // Fetch first page to get total page count, then fetch all pages
-    let baseUrl = "https://api-production.data.gov.sg/v2/public/api/datasets";
+    let baseUrl = API_DATASETS_ENDPOINT;
 
     logger.log("Fetching datasets list from:", baseUrl);
 
@@ -155,8 +167,8 @@ function GovDataChart(props) {
           logger.log(`Total pages: ${totalPages}`);
 
           // If there are more pages, fetch them in batches for better performance
-          // Limit to first 50 pages initially to improve load time
-          const maxPagesToFetch = Math.min(totalPages, 50);
+          // Limit to first N pages initially to improve load time
+          const maxPagesToFetch = Math.min(totalPages, MAX_PAGES_TO_FETCH);
           if (maxPagesToFetch > 1) {
             logger.log(
               `Fetching remaining ${
@@ -456,7 +468,7 @@ function GovDataChart(props) {
         setIsLoaded(true);
         setIsLoadingDatasets(false);
       });
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // update datasets whenever there is a change in organisation selection
   // Only auto-select a resourceID if none is currently selected for this organization
@@ -499,14 +511,13 @@ function GovDataChart(props) {
     setYKey("");
     setSeries("");
     setUseBarChart(false);
-    setXMin("auto");
-    setXMax("auto");
-    setYMin("auto");
-    setYMax("auto");
+    setXMin(DOMAIN_AUTO);
+    setXMax(DOMAIN_AUTO);
+    setYMin(DOMAIN_AUTO);
+    setYMax(DOMAIN_AUTO);
 
     // Use the new v2 API endpoint to fetch dataset rows
-    // Endpoint: https://api-production.data.gov.sg/v2/public/api/datasets/{datasetId}/list-rows
-    let url = `https://api-production.data.gov.sg/v2/public/api/datasets/${resourceID}/list-rows?limit=${limit}`;
+    let url = `${API_LIST_ROWS_ENDPOINT(resourceID)}?limit=${debouncedLimit}`;
     logger.log("=== FETCHING DATASET ROWS ===");
     logger.log("Fetching dataset from:", url);
     logger.log("Resource ID (datasetId):", resourceID);
@@ -555,7 +566,7 @@ function GovDataChart(props) {
             throw new Error(
               `HTTP ${res.status} ${res.statusText} - ${errorDetails.substring(
                 0,
-                500
+                ERROR_MESSAGE_MAX_LENGTH
               )}`
             );
           });
@@ -740,8 +751,8 @@ function GovDataChart(props) {
           }
           setIsLoaded(true);
         } else {
-          console.error("=== UNKNOWN DATASET FORMAT ===");
-          console.error("API data structure:", apiData);
+          logger.error("=== UNKNOWN DATASET FORMAT ===");
+          logger.error("API data structure:", apiData);
           setError({
             message: "API error: Unknown response format from dataset endpoint",
           });
@@ -749,6 +760,15 @@ function GovDataChart(props) {
         }
       })
       .catch((error) => {
+        // Check if request was aborted or if this is an old request
+        if (
+          abortController.signal.aborted ||
+          error.name === "AbortError" ||
+          requestId !== currentRequestIdRef.current
+        ) {
+          return;
+        }
+
         let errorMessage = "Failed to fetch dataset. ";
         if (
           error.message &&
@@ -763,7 +783,7 @@ function GovDataChart(props) {
         setError({ message: errorMessage, originalError: error });
         setIsLoaded(true);
       });
-  }, [resourceID, limit, organisation]);
+  }, [resourceID, debouncedLimit, organisation]);
 
   // error handling - only auto-select organization if none is selected and user hasn't selected one
   useEffect(() => {
@@ -779,29 +799,28 @@ function GovDataChart(props) {
     }
   }, [error, isLoaded, orgList, organisation]);
 
-  // update datasets whenever there are changes to the parameters
-  useEffect(() => {
+  // Memoize expensive dataset processing computation
+  const processedDataset = useMemo(() => {
     if (!result || !result.records || !xKey || !yKey) {
-      console.log("Dataset processing skipped - missing data:", {
+      verboseLog("Dataset processing skipped - missing data:", {
         hasResult: !!result,
         hasRecords: !!(result && result.records),
         xKey,
         yKey,
       });
-      return;
+      return {};
     }
 
-    console.log("=== PROCESSING DATASET ===");
-    console.log("Records count:", result.records.length);
-    console.log("xKey:", xKey, "yKey:", yKey, "series:", series);
-    console.log("Sample record:", result.records[0]);
+    logger.log("=== PROCESSING DATASET ===");
+    logger.log("Records count:", result.records.length);
+    logger.log("xKey:", xKey, "yKey:", yKey, "series:", series);
 
     // Check if xKey contains date strings
     const sampleXValue = result.records[0]?.[xKey];
     const xKeyIsDate = sampleXValue && isDateString(String(sampleXValue));
-    console.log("X-axis is date format?", xKeyIsDate, "Sample:", sampleXValue);
+    verboseLog("X-axis is date format?", xKeyIsDate, "Sample:", sampleXValue);
 
-    let records = result.records.sort((a, b) => {
+    let records = [...result.records].sort((a, b) => {
       const aVal = a[xKey];
       const bVal = b[xKey];
       // Use intelligent comparison that handles dates, numbers, and strings
@@ -822,26 +841,7 @@ function GovDataChart(props) {
         }
         return record;
       });
-      const afterSample = records[0]?.[xKey];
       verboseLog("Converted date strings to timestamps for x-axis");
-      verboseLog(
-        "Sample conversion:",
-        sampleXValue,
-        "->",
-        afterSample,
-        "(" +
-          (afterSample
-            ? new Date(afterSample).toISOString().substring(0, 10)
-            : "null") +
-          ")"
-      );
-      verboseLog(
-        "First 3 x-values after conversion:",
-        records.slice(0, 3).map((r) => ({
-          converted: r[xKey],
-          date: new Date(r[xKey]).toISOString().substring(0, 10),
-        }))
-      );
     }
 
     let dataset = {};
@@ -865,21 +865,15 @@ function GovDataChart(props) {
               };
             });
         });
-        console.log(
+        logger.log(
           "Grouped dataset (no sum):",
           Object.keys(grouped).length,
           "series"
         );
-        setDataset(grouped);
-        // Calculate domain for grouped data
-        const domain = calculateDomain(grouped, xKey, yKey);
-        setXMin(domain.xMin);
-        setXMax(domain.xMax);
-        setYMin(domain.yMin);
-        setYMax(domain.yMax);
+        return grouped;
       } else {
         // No series, just use all records as one series
-        console.log("No series specified, using all records as single series");
+        logger.log("No series specified, using all records as single series");
         // Records are already sorted by xKey, ensure y-values are numeric
         const processedRecords = records.map((record) => {
           const yValue = record[yKey];
@@ -890,16 +884,8 @@ function GovDataChart(props) {
             [yKey]: numericYValue,
           };
         });
-        const singleSeries = { "All Data": processedRecords };
-        setDataset(singleSeries);
-        // Calculate domain for single series
-        const domain = calculateDomain(singleSeries, xKey, yKey);
-        setXMin(domain.xMin);
-        setXMax(domain.xMax);
-        setYMin(domain.yMin);
-        setYMax(domain.yMax);
+        return { "All Data": processedRecords };
       }
-      return;
     }
 
     // Note: records already have dates converted to timestamps if xKeyIsDate was true
@@ -966,34 +952,26 @@ function GovDataChart(props) {
       // They will be plotted on a linear scale at their actual numeric values
       entries.sort((a, b) => compareValues(a[xKey], b[xKey]));
       dataset[seriesID] = entries;
-
-      // Log sample to verify y-values are numeric
-      if (entries.length > 0) {
-        console.log(
-          `Sample entries for series "${seriesID}":`,
-          entries.slice(0, 3).map((e) => ({
-            x: e[xKey],
-            y: e[yKey],
-            yType: typeof e[yKey],
-            yIsNumber: typeof e[yKey] === "number",
-          }))
-        );
-      }
     });
 
-    console.log("Processed dataset:", {
+    logger.log("Processed dataset:", {
       seriesCount: Object.keys(dataset).length,
       seriesNames: Object.keys(dataset),
-      sampleSeries: Object.keys(dataset)[0]
-        ? {
-            name: Object.keys(dataset)[0],
-            dataPoints: dataset[Object.keys(dataset)[0]].length,
-            sample: dataset[Object.keys(dataset)[0]].slice(0, 3),
-          }
-        : null,
     });
-    setDataset(dataset);
+    return dataset;
   }, [sumData, result, series, xKey, yKey]);
+
+  // Update dataset state and calculate domain when processed dataset changes
+  useEffect(() => {
+    if (Object.keys(processedDataset).length > 0) {
+      setDataset(processedDataset);
+      const domain = calculateDomain(processedDataset, xKey, yKey);
+      setXMin(domain.xMin);
+      setXMax(domain.xMax);
+      setYMin(domain.yMin);
+      setYMax(domain.yMax);
+    }
+  }, [processedDataset, xKey, yKey]);
 
   // Show loading state for initial dataset list fetch
   if (isLoadingDatasets) {
@@ -1067,5 +1045,7 @@ function GovDataChart(props) {
     </Row>
   );
 }
+
+// PropTypes not needed for GovDataChart as it doesn't receive props
 
 export default GovDataChart;

@@ -43,6 +43,13 @@ function analyzeField(field, records) {
   };
 }
 
+/**
+ * Automatically computes appropriate x-axis, y-axis, and series labels based on field analysis
+ * Uses scoring system to select the best fields for each axis
+ * @param {Array} fields - Array of field objects with id, type, etc.
+ * @param {Array} records - Array of data records
+ * @returns {Array} - [xKey, yKey, seriesKey] where seriesKey may be null
+ */
 export function computeLabels(fields, records) {
   let temp_x,
     temp_y,
@@ -453,7 +460,13 @@ export function computeLabels(fields, records) {
   return [temp_x, temp_y, temp_series];
 }
 
-// Function to determine if bar chart is more appropriate than line chart
+/**
+ * Determines if a bar chart is more appropriate than a line chart based on x-axis characteristics
+ * @param {Array} records - Array of data records
+ * @param {string} xKey - The x-axis field key
+ * @param {Array} fields - Array of field objects
+ * @returns {boolean} - True if bar chart should be used
+ */
 export function shouldUseBarChart(records, xKey, fields) {
   if (!records || !xKey || records.length === 0) {
     return false;

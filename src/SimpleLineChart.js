@@ -8,27 +8,40 @@ import {
   Tooltip,
   Legend,
 } from "recharts";
+import PropTypes from "prop-types";
 
 import { parseFloatOrText } from "./utils.js";
+import {
+  CHART_HEIGHT,
+  CHART_MARGINS,
+  LEGEND_MAX_HEIGHT,
+  LEGEND_ICON_SIZE,
+  LEGEND_FONT_SIZE,
+  ANIMATION_DURATION,
+  TIMESTAMP_THRESHOLD,
+  COLOR_PALETTE,
+} from "./constants.js";
+import { logger } from "./utils/logger.js";
 
+/**
+ * Line chart component for displaying time series and continuous data
+ * @param {Object} props - Component props
+ * @param {boolean} props.isLoaded - Whether data has been loaded
+ * @param {Object|null} props.error - Error object if an error occurred
+ * @param {Object} props.dataset - Dataset object with series as keys
+ * @param {string} props.xKey - Key for x-axis data
+ * @param {string} props.yKey - Key for y-axis data
+ * @param {Array} props.domain - Array of [xMin, xMax, yMin, yMax] domain values
+ */
 function SimpleLineChart(props) {
-  let [xMin, xMax, yMin, yMax] = props.domain;
+  // Safely destructure domain array with defaults
+  const domain = Array.isArray(props.domain) && props.domain.length >= 4 
+    ? props.domain 
+    : ["auto", "auto", "auto", "auto"];
+  let [xMin, xMax, yMin, yMax] = domain;
 
-  // Modern color palette for chart lines
-  const colorPalette = [
-    "#6366f1", // Indigo
-    "#8b5cf6", // Purple
-    "#ec4899", // Pink
-    "#10b981", // Emerald
-    "#f59e0b", // Amber
-    "#3b82f6", // Blue
-    "#ef4444", // Red
-    "#06b6d4", // Cyan
-    "#84cc16", // Lime
-    "#f97316", // Orange
-    "#14b8a6", // Teal
-    "#a855f7", // Violet
-  ];
+  // Use centralized color palette
+  const colorPalette = COLOR_PALETTE;
 
   function isAxisNumerical(key) {
     if (!props.dataset || !Object.keys(props.dataset)[0]) return false;
@@ -66,21 +79,18 @@ function SimpleLineChart(props) {
     // If at least 80% of checked values are numeric, treat as numerical axis
     const isNumerical = totalChecked > 0 && numericCount / totalChecked >= 0.8;
     if (key === props.yKey) {
-      // Only log in development mode
-      if (process.env.NODE_ENV === "development") {
-        console.log(`Y-axis numerical check for "${key}":`, {
-          isNumerical,
-          numericCount,
-          totalChecked,
-          ratio:
-            totalChecked > 0 ? (numericCount / totalChecked).toFixed(2) : 0,
-          sampleValues: props.dataset[first_series].slice(0, 5).map((r) => ({
-            value: r[key],
-            type: typeof r[key],
-            isNumeric: typeof r[key] === "number" && !isNaN(r[key]),
-          })),
-        });
-      }
+      logger.log(`Y-axis numerical check for "${key}":`, {
+        isNumerical,
+        numericCount,
+        totalChecked,
+        ratio:
+          totalChecked > 0 ? (numericCount / totalChecked).toFixed(2) : 0,
+        sampleValues: props.dataset[first_series].slice(0, 5).map((r) => ({
+          value: r[key],
+          type: typeof r[key],
+          isNumeric: typeof r[key] === "number" && !isNaN(r[key]),
+        })),
+      });
     }
     return isNumerical;
   }
@@ -219,20 +229,21 @@ function SimpleLineChart(props) {
     );
   }
 
-  console.log("=== RENDERING CHART ===");
-  console.log("Dataset keys:", Object.keys(props.dataset));
-  console.log("xKey:", props.xKey, "yKey:", props.yKey);
-  console.log(
+  logger.log("=== RENDERING CHART ===");
+  logger.log("Dataset keys:", Object.keys(props.dataset));
+  logger.log("xKey:", props.xKey, "yKey:", props.yKey);
+  const firstSeriesKey = Object.keys(props.dataset)[0];
+  logger.log(
     "Sample series data:",
-    Object.keys(props.dataset)[0]
-      ? props.dataset[Object.keys(props.dataset)[0]].slice(0, 3)
+    firstSeriesKey && props.dataset[firstSeriesKey]
+      ? props.dataset[firstSeriesKey].slice(0, 3)
       : null
   );
 
   return (
     <div className="chart-container">
-      <ResponsiveContainer width="100%" height={600}>
-        <LineChart margin={{ top: 20, right: 30, left: 50, bottom: 80 }}>
+      <ResponsiveContainer width="100%" height={CHART_HEIGHT}>
+        <LineChart margin={CHART_MARGINS}>
           <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" opacity={0.5} />
           <XAxis
             type={isAxisNumerical(props.xKey) ? "number" : "category"}
@@ -244,7 +255,7 @@ function SimpleLineChart(props) {
             }
             tickFormatter={(value) => {
               // If value is a timestamp (large number), format as date
-              if (typeof value === "number" && value > 1000000000) {
+              if (typeof value === "number" && value > TIMESTAMP_THRESHOLD) {
                 const date = new Date(value);
                 // Format as YYYY-MM if it's the first of the month, otherwise YYYY-MM-DD
                 if (date.getDate() === 1) {
@@ -291,11 +302,14 @@ function SimpleLineChart(props) {
             labelStyle={{ fontWeight: 600, marginBottom: "8px" }}
           />
           <Legend
-            iconSize={10}
+            iconSize={LEGEND_ICON_SIZE}
             wrapperStyle={{
-              fontSize: "0.75em",
+              fontSize: LEGEND_FONT_SIZE,
               paddingTop: "10px",
               paddingBottom: "5px",
+              maxHeight: `${LEGEND_MAX_HEIGHT}px`,
+              overflowY: "auto",
+              overflowX: "hidden",
             }}
             iconType="line"
             layout="horizontal"
@@ -304,7 +318,7 @@ function SimpleLineChart(props) {
           {Object.keys(props.dataset).map((key, index) => {
             const seriesData = props.dataset[key];
             if (!Array.isArray(seriesData) || seriesData.length === 0) {
-              console.warn(`Series "${key}" has no data or is not an array`);
+              logger.warn(`Series "${key}" has no data or is not an array`);
               return null;
             }
             const lineColor = colorPalette[index % colorPalette.length];
@@ -319,7 +333,7 @@ function SimpleLineChart(props) {
                 strokeWidth={2.5}
                 dot={{ fill: lineColor, r: 4, strokeWidth: 2, stroke: "#fff" }}
                 activeDot={{ r: 6, stroke: "#fff", strokeWidth: 2 }}
-                animationDuration={750}
+                animationDuration={ANIMATION_DURATION}
               />
             );
           })}
@@ -328,5 +342,16 @@ function SimpleLineChart(props) {
     </div>
   );
 }
+
+SimpleLineChart.propTypes = {
+  isLoaded: PropTypes.bool.isRequired,
+  error: PropTypes.object,
+  dataset: PropTypes.object.isRequired,
+  xKey: PropTypes.string.isRequired,
+  yKey: PropTypes.string.isRequired,
+  domain: PropTypes.arrayOf(
+    PropTypes.oneOfType([PropTypes.string, PropTypes.number])
+  ).isRequired,
+};
 
 export default SimpleLineChart;
