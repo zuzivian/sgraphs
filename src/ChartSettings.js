@@ -120,9 +120,10 @@ function ChartSettings(props) {
           </Col>
           <Col>
             <Form.Select
-              value={series}
-              onChange={(e) => setSeries(e.target.value)}
+              value={series || ""}
+              onChange={(e) => setSeries(e.target.value || "")}
             >
+              <option value="">(None)</option>
               {fields.map((key) => (
                 <option key={key} value={key}>
                   {key}
