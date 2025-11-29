@@ -1,12 +1,11 @@
 {
   "name": "sgraphs",
   "version": "0.1.0",
-  "homepage": ".",
+  "homepage": "http://zuzivian.github.io/sgraphs",
   "private": true,
   "dependencies": {
     "bootstrap": "^5.1.3",
     "gh-pages": "^3.2.3",
-    "prop-types": "^15.8.1",
     "react": "^17.0.2",
     "react-bootstrap": "^2.2.1",
     "react-dom": "^17.0.2",
@@ -17,8 +16,6 @@
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
-    "build:local": "set PUBLIC_URL=. && react-scripts build",
-    "serve": "npx serve -s build -l 3000",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "predeploy": "npm run build",
@@ -40,8 +37,5 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
-  },
-  "devDependencies": {
-    "http-proxy-middleware": "^3.0.5"
   }
 }
