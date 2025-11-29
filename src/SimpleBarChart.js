@@ -1,7 +1,7 @@
 import {
   ResponsiveContainer,
-  LineChart,
-  Line,
+  BarChart,
+  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -24,7 +24,7 @@ import {
 import { logger } from "./utils/logger";
 
 /**
- * Line chart component for displaying time series and continuous data
+ * Bar chart component for displaying categorical data
  * @param {Object} props - Component props
  * @param {boolean} props.isLoaded - Whether data has been loaded
  * @param {Object|null} props.error - Error object if an error occurred
@@ -33,7 +33,7 @@ import { logger } from "./utils/logger";
  * @param {string} props.yKey - Key for y-axis data
  * @param {Array} props.domain - Array of [xMin, xMax, yMin, yMax] domain values
  */
-function SimpleLineChart(props) {
+function SimpleBarChart(props) {
   // Safely destructure domain array with defaults
   const domain = Array.isArray(props.domain) && props.domain.length >= 4 
     ? props.domain 
@@ -77,136 +77,142 @@ function SimpleLineChart(props) {
     }
 
     // If at least 80% of checked values are numeric, treat as numerical axis
-    const isNumerical = totalChecked > 0 && numericCount / totalChecked >= 0.8;
-    if (key === props.yKey) {
-      logger.log(`Y-axis numerical check for "${key}":`, {
-        isNumerical,
-        numericCount,
-        totalChecked,
-        ratio:
-          totalChecked > 0 ? (numericCount / totalChecked).toFixed(2) : 0,
-        sampleValues: props.dataset[first_series].slice(0, 5).map((r) => ({
-          value: r[key],
-          type: typeof r[key],
-          isNumeric: typeof r[key] === "number" && !isNaN(r[key]),
-        })),
-      });
-    }
-    return isNumerical;
+    return totalChecked > 0 && numericCount / totalChecked >= 0.8;
   }
 
   if (props.error) {
     return (
-      <div
-        style={{
-          padding: "20px",
-          textAlign: "left",
-          maxWidth: "800px",
-          margin: "0 auto",
-        }}
-      >
+      <div className="chart-container">
         <div
           style={{
-            color: "#d32f2f",
-            fontSize: "1.2em",
-            marginBottom: "15px",
-            fontWeight: "bold",
+            padding: "20px",
+            textAlign: "left",
+            maxWidth: "800px",
+            margin: "0 auto",
           }}
         >
-          ⚠️ Error: {props.error.message || "An error occurred"}
-        </div>
+          <div
+            style={{
+              color: "#d32f2f",
+              fontSize: "1.2em",
+              marginBottom: "15px",
+              fontWeight: "bold",
+            }}
+          >
+            ⚠️ Error: {props.error.message || "An error occurred"}
+          </div>
 
-        {/* Show detailed error information if available */}
-        {props.error.errorName && (
+          {/* Show detailed error information if available */}
+          {props.error.errorName && (
+            <div
+              style={{
+                fontSize: "0.9em",
+                color: "#666",
+                marginTop: "10px",
+                padding: "10px",
+                backgroundColor: "#f5f5f5",
+                borderRadius: "4px",
+              }}
+            >
+              <strong>Error Details:</strong>
+              <ul style={{ marginTop: "5px", paddingLeft: "20px" }}>
+                <li>
+                  <strong>Error Type:</strong> {props.error.errorName}
+                </li>
+                {props.error.errorMessage && (
+                  <li>
+                    <strong>Message:</strong> {props.error.errorMessage}
+                  </li>
+                )}
+                {props.error.originalError && (
+                  <li>
+                    <strong>Original Error:</strong>{" "}
+                    {JSON.stringify(
+                      props.error.originalError,
+                      null,
+                      2
+                    ).substring(0, 200)}
+                    ...
+                  </li>
+                )}
+              </ul>
+            </div>
+          )}
+
           <div
             style={{
               fontSize: "0.9em",
               color: "#666",
-              marginTop: "10px",
+              marginTop: "15px",
               padding: "10px",
-              backgroundColor: "#f5f5f5",
+              backgroundColor: "#fff3cd",
               borderRadius: "4px",
             }}
           >
-            <strong>Error Details:</strong>
-            <ul style={{ marginTop: "5px", paddingLeft: "20px" }}>
+            <strong>Debugging Steps:</strong>
+            <ol style={{ marginTop: "5px", paddingLeft: "20px" }}>
+              <li>Open browser console (F12) and check for detailed logs</li>
               <li>
-                <strong>Error Type:</strong> {props.error.errorName}
+                Look for logs starting with "===" to see the fetch process
               </li>
-              {props.error.errorMessage && (
-                <li>
-                  <strong>Message:</strong> {props.error.errorMessage}
-                </li>
-              )}
-              {props.error.originalError && (
-                <li>
-                  <strong>Original Error:</strong>{" "}
-                  {JSON.stringify(props.error.originalError, null, 2).substring(
-                    0,
-                    200
-                  )}
-                  ...
-                </li>
-              )}
-            </ul>
+              <li>
+                Check the Network tab to see the actual HTTP request/response
+              </li>
+              <li>
+                Verify the development server is running: <code>npm start</code>
+              </li>
+              <li>
+                Check that the proxy is configured correctly in{" "}
+                <code>src/setupProxy.js</code>
+              </li>
+            </ol>
           </div>
-        )}
 
-        <div
-          style={{
-            fontSize: "0.9em",
-            color: "#666",
-            marginTop: "15px",
-            padding: "10px",
-            backgroundColor: "#fff3cd",
-            borderRadius: "4px",
-          }}
-        >
-          <strong>Debugging Steps:</strong>
-          <ol style={{ marginTop: "5px", paddingLeft: "20px" }}>
-            <li>Open browser console (F12) and check for detailed logs</li>
-            <li>Look for logs starting with "===" to see the fetch process</li>
-            <li>
-              Check the Network tab to see the actual HTTP request/response
-            </li>
-            <li>
-              Verify the development server is running: <code>npm start</code>
-            </li>
-            <li>
-              Check that the proxy is configured correctly in{" "}
-              <code>src/setupProxy.js</code>
-            </li>
-          </ol>
+          {props.error.message && props.error.message.includes("CORS") && (
+            <div
+              style={{
+                fontSize: "0.9em",
+                color: "#666",
+                marginTop: "10px",
+                padding: "10px",
+                backgroundColor: "#e3f2fd",
+                borderRadius: "4px",
+              }}
+            >
+              <strong>CORS Issue Detected:</strong>
+              <ul style={{ marginTop: "5px", paddingLeft: "20px" }}>
+                <li>
+                  Use <code>npm start</code> to run the development server, or
+                </li>
+                <li>
+                  Serve the build folder using a web server (e.g.,{" "}
+                  <code>npx serve -s build</code>)
+                </li>
+                <li>Do not open the HTML file directly in the browser</li>
+              </ul>
+            </div>
+          )}
         </div>
-
-        {props.error.message && props.error.message.includes("CORS") && (
-          <div
-            style={{
-              fontSize: "0.9em",
-              color: "#666",
-              marginTop: "10px",
-              padding: "10px",
-              backgroundColor: "#e3f2fd",
-              borderRadius: "4px",
-            }}
-          >
-            <strong>CORS Issue Detected:</strong>
-            <ul style={{ marginTop: "5px", paddingLeft: "20px" }}>
-              <li>
-                Use <code>npm start</code> to run the development server, or
-              </li>
-              <li>
-                Serve the build folder using a web server (e.g.,{" "}
-                <code>npx serve -s build</code>)
-              </li>
-              <li>Do not open the HTML file directly in the browser</li>
-            </ul>
-          </div>
-        )}
       </div>
     );
   }
-  if (!props.isLoaded) return <div>Loading Data...</div>;
+
+  if (!props.isLoaded) {
+    return (
+      <div className="chart-container">
+        <div className="loading-container">
+          <div>
+            <div className="spinner"></div>
+            <div
+              style={{ marginTop: "1rem", fontSize: "1.1em", color: "#64748b" }}
+            >
+              Loading chart data...
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Validate dataset structure
   if (
@@ -229,7 +235,7 @@ function SimpleLineChart(props) {
     );
   }
 
-  logger.log("=== RENDERING CHART ===");
+  logger.log("=== RENDERING BAR CHART ===");
   logger.log("Dataset keys:", Object.keys(props.dataset));
   logger.log("xKey:", props.xKey, "yKey:", props.yKey);
   const firstSeriesKey = Object.keys(props.dataset)[0];
@@ -240,10 +246,65 @@ function SimpleLineChart(props) {
       : null
   );
 
+  // Transform dataset structure for Recharts BarChart
+  // Recharts expects: data = [{x: 1, series1: 10, series2: 15}, {x: 2, series1: 20, series2: 25}]
+  // Current structure: dataset = {series1: [{x: 1, y: 10}], series2: [{x: 1, y: 15}]}
+  const seriesKeys = Object.keys(props.dataset);
+  let transformedData = [];
+
+  if (seriesKeys.length > 0) {
+    // Get all unique x-values across all series
+    const xValueSet = new Set();
+    seriesKeys.forEach((seriesKey) => {
+      const seriesData = props.dataset[seriesKey];
+      if (Array.isArray(seriesData)) {
+        seriesData.forEach((point) => {
+          if (point[props.xKey] !== undefined && point[props.xKey] !== null) {
+            xValueSet.add(point[props.xKey]);
+          }
+        });
+      }
+    });
+
+    const xValues = Array.from(xValueSet).sort((a, b) => {
+      // Use intelligent comparison for sorting
+      if (typeof a === "number" && typeof b === "number") return a - b;
+      if (typeof a === "number") return -1;
+      if (typeof b === "number") return 1;
+      return String(a).localeCompare(String(b));
+    });
+
+    // Create transformed data array
+    transformedData = xValues.map((xValue) => {
+      const dataPoint = { [props.xKey]: xValue };
+
+      // For each series, find the y-value for this x-value
+      seriesKeys.forEach((seriesKey) => {
+        const seriesData = props.dataset[seriesKey];
+        if (Array.isArray(seriesData)) {
+          const matchingPoint = seriesData.find(
+            (point) => point[props.xKey] === xValue
+          );
+          if (matchingPoint && matchingPoint[props.yKey] !== undefined) {
+            // Use series key as the dataKey for this bar
+            dataPoint[seriesKey] = matchingPoint[props.yKey];
+          } else {
+            // No data for this x-value in this series
+            dataPoint[seriesKey] = null;
+          }
+        }
+      });
+
+      return dataPoint;
+    });
+  }
+
+  logger.log("Transformed data for bar chart:", transformedData.slice(0, 3));
+
   return (
     <div className="chart-container">
       <ResponsiveContainer width="100%" height={CHART_HEIGHT}>
-        <LineChart margin={CHART_MARGINS}>
+        <BarChart data={transformedData} margin={CHART_MARGINS}>
           <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" opacity={0.5} />
           <XAxis
             type={isAxisNumerical(props.xKey) ? "number" : "category"}
@@ -311,39 +372,40 @@ function SimpleLineChart(props) {
               overflowY: "auto",
               overflowX: "hidden",
             }}
-            iconType="line"
+            iconType="rect"
             layout="horizontal"
             verticalAlign="bottom"
+            formatter={(value) =>
+              value.length > 30 ? value.substring(0, 30) + "..." : value
+            }
           />
-          {Object.keys(props.dataset).map((key, index) => {
-            const seriesData = props.dataset[key];
+          {seriesKeys.map((seriesKey, index) => {
+            const seriesData = props.dataset[seriesKey];
             if (!Array.isArray(seriesData) || seriesData.length === 0) {
-              logger.warn(`Series "${key}" has no data or is not an array`);
+              logger.warn(
+                `Series "${seriesKey}" has no data or is not an array`
+              );
               return null;
             }
-            const lineColor = colorPalette[index % colorPalette.length];
+            const barColor = colorPalette[index % colorPalette.length];
             return (
-              <Line
-                type="monotone"
-                dataKey={props.yKey}
-                data={seriesData}
-                name={key}
-                key={key}
-                stroke={lineColor}
-                strokeWidth={2.5}
-                dot={{ fill: lineColor, r: 4, strokeWidth: 2, stroke: "#fff" }}
-                activeDot={{ r: 6, stroke: "#fff", strokeWidth: 2 }}
+              <Bar
+                dataKey={seriesKey}
+                name={seriesKey}
+                key={seriesKey}
+                fill={barColor}
+                radius={[8, 8, 0, 0]}
                 animationDuration={ANIMATION_DURATION}
               />
             );
           })}
-        </LineChart>
+        </BarChart>
       </ResponsiveContainer>
     </div>
   );
 }
 
-SimpleLineChart.propTypes = {
+SimpleBarChart.propTypes = {
   isLoaded: PropTypes.bool.isRequired,
   error: PropTypes.object,
   dataset: PropTypes.object.isRequired,
@@ -354,4 +416,5 @@ SimpleLineChart.propTypes = {
   ).isRequired,
 };
 
-export default SimpleLineChart;
+export default SimpleBarChart;
+

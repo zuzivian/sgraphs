@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Button, Row, Col, Form } from 'react-bootstrap';
 
-import { getResourceNamefromID } from "./utils.js";
+import { getResourceNamefromID } from "./utils";
 
 function ChartSettings(props) {
   let [xMin, setXMin, xMax, setXMax, yMin, setYMin, yMax, setYMax] =
@@ -120,9 +120,10 @@ function ChartSettings(props) {
           </Col>
           <Col>
             <Form.Select
-              value={series}
-              onChange={(e) => setSeries(e.target.value)}
+              value={series || ""}
+              onChange={(e) => setSeries(e.target.value || "")}
             >
+              <option value="">(None)</option>
               {fields.map((key) => (
                 <option key={key} value={key}>
                   {key}
